@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ExportOS ERP Design System - Modern minimal SaaS (Linear/Notion-like) */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 20% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 20% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 20% 12%;
+
+    /* Brand: deep indigo */
+    --primary: 232 65% 52%;
+    --primary-foreground: 0 0% 100%;
+    --primary-muted: 232 65% 96%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 20% 18%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 232 65% 96%;
+    --accent-foreground: 232 65% 40%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --success-muted: 142 71% 95%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --warning-muted: 38 92% 95%;
+
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --info-muted: 199 89% 95%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 232 65% 52%;
+
+    --radius: 0.625rem;
+
+    /* Sidebar */
+    --sidebar-background: 222 25% 10%;
+    --sidebar-foreground: 220 14% 78%;
+    --sidebar-primary: 232 65% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 22% 16%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 222 22% 16%;
+    --sidebar-ring: 232 65% 60%;
+    --sidebar-muted: 220 9% 55%;
+
+    /* Charts */
+    --chart-1: 232 65% 52%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 199 89% 48%;
+    --chart-5: 280 65% 60%;
+
+    --shadow-sm: 0 1px 2px 0 hsl(222 20% 12% / 0.04);
+    --shadow-md: 0 4px 12px -2px hsl(222 20% 12% / 0.06);
+  }
+
+  .dark {
+    --background: 222 25% 8%;
+    --foreground: 220 14% 92%;
+    --card: 222 25% 11%;
+    --card-foreground: 220 14% 92%;
+    --popover: 222 25% 11%;
+    --popover-foreground: 220 14% 92%;
+    --primary: 232 65% 62%;
+    --primary-foreground: 0 0% 100%;
+    --primary-muted: 232 40% 18%;
+    --secondary: 222 22% 16%;
+    --secondary-foreground: 220 14% 92%;
+    --muted: 222 22% 16%;
+    --muted-foreground: 220 9% 60%;
+    --accent: 222 22% 18%;
+    --accent-foreground: 220 14% 92%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 60% 45%;
+    --success-foreground: 0 0% 100%;
+    --success-muted: 142 30% 18%;
+    --warning: 38 80% 50%;
+    --warning-foreground: 0 0% 100%;
+    --warning-muted: 38 30% 18%;
+    --info: 199 80% 50%;
+    --info-foreground: 0 0% 100%;
+    --info-muted: 199 30% 18%;
+    --border: 222 22% 18%;
+    --input: 222 22% 18%;
+    --ring: 232 65% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  h1, h2, h3, h4 {
+    @apply tracking-tight;
+  }
+}
+
+@layer components {
+  .erp-card {
+    @apply bg-card border border-border rounded-lg shadow-sm;
+  }
+}
