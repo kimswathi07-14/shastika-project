@@ -187,12 +187,6 @@ const AdminPanel = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-foreground">Admin Panel</h1>
-        <button
-          onClick={() => navigate('/admin/update-products')}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition font-medium"
-        >
-          Update Products
-        </button>
       </div>
 
       {/* Tabs */}

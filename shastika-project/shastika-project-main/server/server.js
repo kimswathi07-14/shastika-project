@@ -33,24 +33,26 @@ if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3001;
 
 // Create HTTP server with Socket.io
 const httpServer = createServer(app);
+const corsOptions = {
+  origin: [
+    'https://app-final-eta.vercel.app',
+    'http://localhost:5173'
+  ],
+  methods: ['GET', 'POST'],
+  credentials: true,
+};
+
 const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
+  cors: corsOptions,
   transports: ['websocket', 'polling'],
 });
 
 // Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true,
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Initialize Razorpay instance - NEVER expose these keys to frontend
@@ -238,6 +240,10 @@ app.get('/health', (req, res) => {
  */
 app.post('/api/razorpay/create-order', async (req, res) => {
   try {
+    console.log('--- New Order Request ---');
+    console.log('Request Body:', req.body);
+    console.log('Razorpay Key ID used:', process.env.RAZORPAY_KEY_ID?.substring(0,12));
+    
     const { amount, currency = 'INR', receipt, notes = {} } = req.body;
 
     // Validate amount (in smallest unit - paise for INR)
@@ -279,7 +285,8 @@ app.post('/api/razorpay/create-order', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to create order',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error.error ? error.error.description : (error.message || 'Unknown error'),
+      fullError: error
     });
   }
 });
@@ -536,34 +543,48 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-httpServer.listen(PORT, () => {
-  console.log('\n🚀 Server is running successfully!');
-  console.log(`   URL: http://localhost:${PORT}`);
-  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`   WebSocket: ws://localhost:${PORT}`);
-  console.log('');
-  console.log('✅ Configuration Verified:');
-  console.log(`   ✓ RAZORPAY_KEY_ID: ${process.env.RAZORPAY_KEY_ID.substring(0, 10)}...`);
-  console.log(`   ✓ RAZORPAY_KEY_SECRET: ${process.env.RAZORPAY_KEY_SECRET.substring(0, 5)}...`);
-  console.log(`   ✓ Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-  console.log('');
-  console.log('📚 API Endpoints:');
-  console.log('   POST /api/razorpay/create-order');
-  console.log('   POST /api/razorpay/verify-payment');
-  console.log('   GET  /api/razorpay/payment/:paymentId');
-  console.log('   GET  /api/razorpay/order/:orderId');
-  console.log('   GET  /api/chat/users - Get chat users based on role');
-  console.log('   GET  /api/chat/history/:userId/:otherUserId - Get chat history');
-  console.log('   GET  /api/chat/online-users - Get all online users');
-  console.log('   GET  /health');
-  console.log('');
-  console.log('🔌 Socket.io Events:');
-  console.log('   user:login - Register user when logging in');
-  console.log('   message:send - Send a message');
-  console.log('   message:receive - Receive a message');
-  console.log('   chat:history - Request chat history');
-  console.log('   message:read - Mark messages as read');
-  console.log('   users:online - Broadcast online users list');
-  console.log('');
+// Start server with port conflict prevention
+const startServer = (port) => {
+  httpServer.listen(port, () => {
+    console.log('\n🚀 Server is running successfully!');
+    console.log(`   URL: http://localhost:${port}`);
+    console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`   WebSocket: ws://localhost:${port}`);
+    console.log('');
+    console.log('✅ Configuration Verified:');
+    console.log(`   ✓ RAZORPAY_KEY_ID: ${process.env.RAZORPAY_KEY_ID?.substring(0, 10) || 'Missing'}...`);
+    console.log(`   ✓ RAZORPAY_KEY_SECRET: ${process.env.RAZORPAY_KEY_SECRET?.substring(0, 5) || 'Missing'}...`);
+    console.log(`   ✓ Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:8080'}`);
+    console.log('');
+    console.log('📚 API Endpoints:');
+    console.log('   POST /api/razorpay/create-order');
+    console.log('   POST /api/razorpay/verify-payment');
+    console.log('   GET  /api/razorpay/payment/:paymentId');
+    console.log('   GET  /api/razorpay/order/:orderId');
+    console.log('   GET  /api/chat/users - Get chat users based on role');
+    console.log('   GET  /api/chat/history/:userId/:otherUserId - Get chat history');
+    console.log('   GET  /api/chat/online-users - Get all online users');
+    console.log('   GET  /health');
+    console.log('');
+    console.log('🔌 Socket.io Events:');
+    console.log('   user:login - Register user when logging in');
+    console.log('   message:send - Send a message');
+    console.log('   message:receive - Receive a message');
+    console.log('   chat:history - Request chat history');
+    console.log('   message:read - Mark messages as read');
+    console.log('   users:online - Broadcast online users list');
+    console.log('');
+  });
+};
+
+httpServer.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    const currentPort = err.port || PORT;
+    console.log(`⚠️ Port ${currentPort} is busy, automatically trying ${currentPort + 1}...`);
+    startServer(currentPort + 1);
+  } else {
+    console.error('Server error:', err);
+  }
 });
+
+startServer(PORT);

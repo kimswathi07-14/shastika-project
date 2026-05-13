@@ -2,7 +2,7 @@ import { db } from './firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 
 // API endpoint - matches your backend configuration
-const PAYMENT_API = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-finals.onrender.com';
 
 /**
  * Razorpay Payment Interfaces
@@ -71,7 +71,7 @@ export async function createRazorpayOrder(
       throw new Error('Invalid amount - must be at least ₹1');
     }
 
-    const response = await fetch(`${PAYMENT_API}/api/razorpay/create-order`, {
+    const response = await fetch(`${API_BASE_URL}/api/razorpay/create-order`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -158,7 +158,7 @@ export async function openRazorpayCheckout(
 
     // Razorpay Checkout Options
     const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Only KEY_ID, never KEY_SECRET
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_SlwOcx9B6AaXXp", // Only KEY_ID, never KEY_SECRET
       order_id: orderId,
       amount: amount * 100, // Convert to paise
       currency: 'INR',
@@ -220,7 +220,7 @@ export async function verifyRazorpayPayment(
       throw new Error('Missing payment details');
     }
 
-    const response = await fetch(`${PAYMENT_API}/api/razorpay/verify-payment`, {
+    const response = await fetch(`${API_BASE_URL}/api/razorpay/verify-payment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

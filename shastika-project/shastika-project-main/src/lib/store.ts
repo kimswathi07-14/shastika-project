@@ -116,7 +116,7 @@ interface AppState {
   addPayment: (p: Payment) => void;
   updatePaymentStatus: (paymentId: string, status: PaymentStatus, note?: string) => void;
   updateShipmentStatus: (orderId: string, status: ShipmentStatus) => void;
-  updateProductPrice: (productId: string, domestic: number, exportPrice: number) => void;
+  updateProductPrice: (productId: string, domestic: number, exportPrice: number) => Promise<void>;
   updateProductStock: (productId: string, quantity: number) => void;
   updateOrderFarmerStatus: (orderId: string, status: OrderAcceptStatus) => void;
   markOrderPaymentComplete: (orderId: string) => void;
@@ -125,6 +125,7 @@ interface AppState {
   addNotification: (n: Notification) => void;
   markNotificationRead: (id: string) => void;
   addProduct: (product: Product) => Promise<void>;
+  setProducts: (products: Product[]) => void;
 }
 
 const defaultProducts: Product[] = PRODUCTS as any;
@@ -159,7 +160,20 @@ export const useStore = create<AppState>((set) => ({
     payments: s.payments.map(p => p.id === paymentId ? { ...p, status, adminNote: note || p.adminNote } : p)
   })),
   updateShipmentStatus: (orderId, status) => set((s) => ({ orders: s.orders.map(o => o.id === orderId ? { ...o, shipmentStatus: status } : o) })),
-  updateProductPrice: (productId, domestic, exportPrice) => set((s) => ({ products: s.products.map(p => p.id === productId ? { ...p, domesticPrice: domestic, exportPrice } : p) })),
+  updateProductPrice: async (productId, domestic, exportPrice) => {
+    try {
+      // First update in Firebase
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const productRef = doc(db, "products", productId);
+      await updateDoc(productRef, { domesticPrice: domestic, exportPrice: exportPrice });
+      
+      // Then update local state for real-time reflection
+      set((s) => ({ products: s.products.map(p => p.id === productId ? { ...p, domesticPrice: domestic, exportPrice } : p) }));
+    } catch (error) {
+      console.error("Error updating price in database:", error);
+      throw error;
+    }
+  },
   updateProductStock: (productId, quantity) => set((s) => ({ products: s.products.map(p => p.id === productId ? { ...p, quantity } : p) })),
   addProduct: async (p) => {
     await addDoc(collection(db, "products"), p);
@@ -171,4 +185,5 @@ export const useStore = create<AppState>((set) => ({
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
   addNotification: (n) => set((s) => ({ notifications: [...s.notifications, n] })),
   markNotificationRead: (id) => set((s) => ({ notifications: s.notifications.map(n => n.id === id ? { ...n, read: true } : n) })),
+  setProducts: (products) => set({ products }),
 }));

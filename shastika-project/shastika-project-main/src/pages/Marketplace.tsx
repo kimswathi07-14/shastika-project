@@ -1,18 +1,56 @@
 import { useNavigate } from "react-router-dom";
-import { useStore } from "@/lib/store";
+import { useStore, Product } from "@/lib/store";
 import { useTranslation } from "react-i18next";
-import { Package, Users, ShoppingCart, TrendingUp, MapPin, Truck, Badge } from "lucide-react";
-import { useState } from "react";
+import { Package, Users, ShoppingCart, TrendingUp, Badge, Edit, IndianRupee, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 const Marketplace = () => {
   const { t } = useTranslation();
-  const { products, currentUser, addOrder, addNotification } = useStore();
+  const { products, currentUser, addOrder, addNotification, updateProductPrice, setProducts } = useStore();
   const navigate = useNavigate();
+
+  // Add Realtime subscription to product price updates (Firebase equivalent)
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "products"), (snapshot) => {
+      // Only update if there are docs
+      if (!snapshot.empty) {
+        const updatedProducts = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Product[];
+        
+        // Merge with existing products to ensure default products are updated 
+        // with any new prices from Firebase
+        setProducts(
+          useStore.getState().products.map(p => {
+            const updated = updatedProducts.find(up => up.id === p.id);
+            return updated ? { ...p, ...updated } : p;
+          })
+        );
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [setProducts]);
   const isAdmin = currentUser?.role === 'admin';
   const isFarmer = currentUser?.role === 'farmer';
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [selectedQuantity, setSelectedQuantity] = useState<{ [key: string]: number }>({});
   const [showQuantityModal, setShowQuantityModal] = useState<string | null>(null);
+
+  // Price Modal State
+  const [priceModalProduct, setPriceModalProduct] = useState<Product | null>(null);
+  const [newDomestic, setNewDomestic] = useState("");
+  const [newExport, setNewExport] = useState("");
+  const [isSavingPrice, setIsSavingPrice] = useState(false);
 
   // Map product IDs to translation keys
   const productNameMap: Record<string, string> = {
@@ -36,49 +74,6 @@ const Marketplace = () => {
   const getProductName = (productId: string, defaultName: string) => {
     const key = productNameMap[productId];
     return key ? t(key) : defaultName;
-  };
-
-  // Map locations to translation keys
-  const locationMap: Record<string, string> = {
-    'Tamil Nadu, India': 'location_tamilnadu',
-    'Kerala, India': 'location_kerala',
-    'Karnataka, India': 'location_karnataka',
-    'Andhra Pradesh, India': 'location_andhra',
-    'Coimbatore, India': 'location_coimbatore',
-    'Pollachi, India': 'location_pollachi',
-    'Thanjavur, India': 'location_thanjavur',
-    'Gujarat, India': 'location_gujarat',
-    'Maharashtra, India': 'location_maharashtra',
-  };
-
-  const getLocation = (location: string) => {
-    // Check if translation key exists, otherwise returnoriginal
-    const key = locationMap[location];
-    const translated = key ? t(key) : location;
-    return translated !== key ? translated : location;
-  };
-
-  // Map farmer names to translation keys
-  const farmerNameMap: Record<string, string> = {
-    'Raju Farms': 'farmer_rajuFarms',
-    'Kumar Plantations': 'farmer_kumarPlantations',
-    'Anand Farms': 'farmer_anandFarms',
-    'Lakshmi Farms': 'farmer_laksmiFarms',
-    'Selvam Estate': 'farmer_selvamEstate',
-    'Murugan Farms': 'farmer_muruganFarms',
-    'Palani Estates': 'farmer_palaniEstates',
-    'Vijay Farms': 'farmer_vijayFarms',
-    'Siva Coconuts': 'farmer_sivaCoconuts',
-    'Ganesh Agro': 'farmer_ganeshAgro',
-    'Prakash Farms': 'farmer_prakashFarms',
-    'Deepa Agri': 'farmer_deepaAgri',
-    'Ramesh Farms': 'farmer_rameshFarms',
-    'Sundar Farms': 'farmer_sundarFarms',
-  };
-
-  const getFarmerName = (farmerName: string) => {
-    const key = farmerNameMap[farmerName];
-    return key ? t(key) : farmerName;
   };
 
   // Map product descriptions to translation keys
@@ -187,6 +182,35 @@ const Marketplace = () => {
     }, 300);
   };
 
+  const openPriceModal = (product: Product) => {
+    setPriceModalProduct(product);
+    setNewDomestic(product.domesticPrice.toString());
+    setNewExport(product.exportPrice.toString());
+  };
+
+  const handleSavePrice = async () => {
+    if (!priceModalProduct) return;
+
+    const domestic = Number(newDomestic);
+    const exportPrice = Number(newExport);
+
+    if (!domestic || !exportPrice || domestic < 0 || exportPrice < 0) {
+      toast.error(t('admin_valid_prices_error') || 'Please enter valid numbers for both prices.');
+      return;
+    }
+
+    setIsSavingPrice(true);
+    try {
+      await updateProductPrice(priceModalProduct.id, domestic, exportPrice);
+      toast.success(t('admin_price_updated_success') || 'Price updated successfully!');
+      setPriceModalProduct(null);
+    } catch (error) {
+      toast.error('Failed to update price. Please try again.');
+    } finally {
+      setIsSavingPrice(false);
+    }
+  };
+
   const StatCard = ({ icon: Icon, label, value, color }: any) => (
     <div className="premium-card p-6 flex items-center gap-4 hover:shadow-lg transition-all duration-300">
       <div className={`${color} p-4 rounded-xl flex items-center justify-center`}>
@@ -201,7 +225,6 @@ const Marketplace = () => {
 
   const ProductCard = ({ product }: { product: any }) => {
     const hasImageError = imageErrors.has(product.id);
-    const quantity = selectedQuantity[product.id] || 1;
     
     return (
       <div className="premium-card group overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl hover:-translate-y-2">
@@ -238,7 +261,7 @@ const Marketplace = () => {
           {/* Category Badge Bottom Left */}
           <div className="absolute bottom-3 left-3">
             <span className="inline-block bg-gradient-to-r from-primary to-secondary text-white px-3 py-1.5 rounded-full text-xs font-bold">
-              {t(`category_${product.category.toLowerCase()}`) || product.category}
+              {t(`category_${product.category?.toLowerCase()}`) || product.category}
             </span>
           </div>
         </div>
@@ -255,25 +278,21 @@ const Marketplace = () => {
             </p>
           </div>
 
-
-
-          {/* Pricing Section */}
-          {!isFarmer && (
-            <div className="border-t border-primary/10 pt-3 mt-auto">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-primary/5 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground font-medium mb-1">{t('domestic_price')}</p>
-                  <p className="text-lg font-bold text-primary">₹{product.domesticPrice}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t('per_kg')}</p>
-                </div>
-                <div className="bg-secondary/5 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground font-medium mb-1">{t('export_price')}</p>
-                  <p className="text-lg font-bold text-secondary">₹{product.exportPrice}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t('per_kg')}</p>
-                </div>
+          {/* Pricing Section - Visible for everyone since admin needs to see it too */}
+          <div className="border-t border-primary/10 pt-3 mt-auto">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-primary/5 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground font-medium mb-1">{t('domestic_price')}</p>
+                <p className="text-lg font-bold text-primary">₹{product.domesticPrice}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('per_kg')}</p>
+              </div>
+              <div className="bg-secondary/5 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground font-medium mb-1">{t('export_price')}</p>
+                <p className="text-lg font-bold text-secondary">₹{product.exportPrice}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('per_kg')}</p>
               </div>
             </div>
-          )}
+          </div>
 
           {/* Action Buttons */}
           <div className="flex gap-2 mt-4">
@@ -283,12 +302,20 @@ const Marketplace = () => {
             >
               {t('view_details')} →
             </button>
-            {!isFarmer && (
+            {!isFarmer && !isAdmin && (
               <button
                 onClick={() => handleBuyNow(product)}
                 className="flex-1 btn-secondary py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-1"
               >
                 <ShoppingCart className="w-4 h-4" /> {t('buy_now')}
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                onClick={() => openPriceModal(product)}
+                className="flex-1 bg-green-800 text-white hover:bg-green-700 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-1 shadow-md hover:shadow-lg"
+              >
+                <Edit className="w-4 h-4" /> Update Price
               </button>
             )}
           </div>
@@ -315,14 +342,6 @@ const Marketplace = () => {
                   {t('export_grade_produce')}
                 </p>
               </div>
-              {isAdmin && (
-                <button
-                  onClick={() => navigate("/admin/update-products")}
-                  className="btn-primary px-6 sm:px-8 py-3 font-semibold text-sm sm:text-base whitespace-nowrap shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all"
-                >
-                  🛠️ {t('manage_products')}
-                </button>
-              )}
             </div>
           </div>
 
@@ -370,14 +389,6 @@ const Marketplace = () => {
             <p className="text-muted-foreground text-lg mb-8 max-w-md">
               {t('no_products_desc')}
             </p>
-            {isAdmin && (
-              <button
-                onClick={() => navigate("/admin/update-products")}
-                className="btn-primary px-8 py-3 font-semibold"
-              >
-                {t('add_first_product')}
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -466,6 +477,83 @@ const Marketplace = () => {
           </div>
         </div>
       )}
+
+      {/* Admin Update Price Modal */}
+      <Dialog open={!!priceModalProduct} onOpenChange={(open) => !open && setPriceModalProduct(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Edit className="w-5 h-5 text-primary" />
+              Update Price: {priceModalProduct?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid gap-6 py-4">
+            <div className="grid grid-cols-2 gap-4 bg-muted/50 p-4 rounded-xl border border-border">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium mb-1">Current Domestic</p>
+                <p className="text-lg font-bold text-primary">₹{priceModalProduct?.domesticPrice}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-medium mb-1">Current Export</p>
+                <p className="text-lg font-bold text-secondary">₹{priceModalProduct?.exportPrice}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                New Domestic Price <span className="text-muted-foreground text-xs font-normal">(₹)</span>
+              </label>
+              <div className="relative">
+                <IndianRupee className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="number"
+                  value={newDomestic}
+                  onChange={(e) => setNewDomestic(e.target.value)}
+                  className="pl-9"
+                  placeholder="Enter new domestic price"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                New Export Price <span className="text-muted-foreground text-xs font-normal">(₹)</span>
+              </label>
+              <div className="relative">
+                <IndianRupee className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="number"
+                  value={newExport}
+                  onChange={(e) => setNewExport(e.target.value)}
+                  className="pl-9"
+                  placeholder="Enter new export price"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setPriceModalProduct(null)} disabled={isSavingPrice}>
+              Cancel
+            </Button>
+            <Button onClick={handleSavePrice} disabled={isSavingPrice} className="min-w-[120px]">
+              {isSavingPrice ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

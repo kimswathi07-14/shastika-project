@@ -38,14 +38,6 @@ const Orders = () => {
           <h1 className="text-4xl font-bold text-foreground mb-2">{t('orders')}</h1>
           <p className="text-muted-foreground">{t('orders_description')}</p>
         </div>
-        {isAdmin && (
-          <button 
-            onClick={() => navigate("/admin/update-products")}
-            className="btn-primary px-6 py-3 font-semibold"
-          >
-            🛠️ {t('admin_update_products')}
-          </button>
-        )}
       </div>
 
       {myOrders.length > 0 && (

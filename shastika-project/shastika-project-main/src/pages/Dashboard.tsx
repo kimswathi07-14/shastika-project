@@ -90,7 +90,7 @@ const Dashboard = () => {
             <QuickAction icon={CreditCard} label={t('payment')} onClick={() => navigate('/payments')} />
             <QuickAction icon={Truck} label={t('shipment')} onClick={() => navigate('/shipment')} />
             <QuickAction icon={MessageCircle} label={t('chat')} onClick={() => navigate('/chat')} />
-            <QuickAction icon={Leaf} label={t('editProduct')} onClick={() => navigate('/admin/update-products')} />
+
           </>}
         </div>
       </div>
